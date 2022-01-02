@@ -21,7 +21,7 @@
 		<connection>scm:git:git@github.com:tfpolachini/kafka-retry-dlt-example.git</connection>
 		<developerConnection>scm:git:git@github.com:tfpolachini/kafka-retry-dlt-example.git</developerConnection>
 		<url>scm:git:git@github.com:tfpolachini/kafka-retry-dlt-example.git</url>
-		<tag>v0.0.1</tag>
+		<tag>HEAD</tag>
 	</scm>
 
 	<dependencies>
