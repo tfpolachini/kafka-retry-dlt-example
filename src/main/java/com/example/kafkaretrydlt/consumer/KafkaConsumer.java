@@ -21,28 +21,32 @@ public class KafkaConsumer {
     this.kafkaProducer = kafkaProducer;
   }
 
-  @KafkaListener(topics = "${kafka.consumer.topic}", containerFactory = "kafkaListenerContainerFactory", groupId = "${kafka.consumer.groupId}")
+  @KafkaListener(topics = "${kafka.consumer.topic}", containerFactory = "kafkaListenerContainerFactory", groupId = "main-group")
   public void kafkaListener(User message, @Header(KafkaHeaders.RECEIVED_TOPIC) String topic,
                             Acknowledgment acknowledgment) {
     log.info("Receive message [" + message + "] from topic : [" + topic + "]");
 
     try {
-      throw new RuntimeException("Exception");
+      if (true) throw new RuntimeException("Exception");
+      acknowledgment.acknowledge();
     } catch (Exception e) {
       kafkaProducer.retry(message);
-    } finally {
       acknowledgment.acknowledge();
     }
   }
 
-  @KafkaListener(topics = "${kafka.retryTopic}", containerFactory = "kafkaRetryListenerContainerFactory", groupId = "${kafka.consumer.groupId}")
+  @KafkaListener(topics = "${kafka.retryTopic}", containerFactory = "kafkaRetryListenerContainerFactory", groupId = "retry-group")
   public void kafkaRetryListener(User message,
-      @Header(KafkaHeaders.RECEIVED_TOPIC) String topic) {
+      @Header(KafkaHeaders.RECEIVED_TOPIC) String topic, Acknowledgment acknowledgment) {
+
     log.info("Receive message [" + message + "] from topic : [" + topic + "]");
-    throw new RuntimeException("Exception on Retry");
+
+    if (true) throw new RuntimeException("Exception on Retry");
+
+    acknowledgment.acknowledge();
   }
 
-  @KafkaListener(topics = "${kafka.dltTopic}", groupId = "${kafka.consumer.groupId}")
+  @KafkaListener(topics = "${kafka.dltTopic}", containerFactory = "kafkaListenerContainerFactory", groupId = "dlt-group")
   public void dlt(User message, @Header(KafkaHeaders.RECEIVED_TOPIC) String topic) {
     log.info("Receive message [" + message + "] from topic : [" + topic + "]");
   }

@@ -12,6 +12,7 @@ import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.listener.ContainerProperties.AckMode;
+import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
 import org.springframework.retry.support.RetryTemplate;
@@ -20,6 +21,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
+import static org.springframework.kafka.listener.adapter.RetryingMessageListenerAdapter.CONTEXT_ACKNOWLEDGMENT;
 import static org.springframework.kafka.listener.adapter.RetryingMessageListenerAdapter.CONTEXT_RECORD;
 
 @Configuration
@@ -43,7 +45,6 @@ public class KafkaConsumerConfig {
     this.kafkaProducer = kafkaProducer;
   }
 
-  @Bean
   public Map<String, Object> consumerProps() {
     Map<String, Object> props = new HashMap<>();
     props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapAddress);
@@ -56,16 +57,9 @@ public class KafkaConsumerConfig {
     return props;
   }
 
-  @Bean
   public ConsumerFactory<String, User> consumerFactory() {
     Map<String, Object> props = consumerProps();
     props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
-    return new DefaultKafkaConsumerFactory<>(props, new StringDeserializer(), new JsonDeserializer<>(User.class));
-  }
-
-  @Bean
-  public ConsumerFactory<String, User> retryConsumerFactory() {
-    Map<String, Object> props = consumerProps();
     return new DefaultKafkaConsumerFactory<>(props, new StringDeserializer(), new JsonDeserializer<>(User.class));
   }
 
@@ -80,18 +74,23 @@ public class KafkaConsumerConfig {
   @Bean
   public ConcurrentKafkaListenerContainerFactory<String, User> kafkaRetryListenerContainerFactory() {
     ConcurrentKafkaListenerContainerFactory<String, User> factory = new ConcurrentKafkaListenerContainerFactory<>();
-    factory.setConsumerFactory(retryConsumerFactory());
+    factory.setConsumerFactory(consumerFactory());
+    factory.getContainerProperties().setAckMode(AckMode.MANUAL_IMMEDIATE);
     factory.setRetryTemplate(retryTemplate());
     factory.setRecoveryCallback(retryContext -> {
-      ConsumerRecord<String, User> record = (ConsumerRecord<String, User>) retryContext.getAttribute(
+      var record = (ConsumerRecord<String, User>) retryContext.getAttribute(
           CONTEXT_RECORD);
+      var acknowledgment = (Acknowledgment) retryContext.getAttribute(
+              CONTEXT_ACKNOWLEDGMENT);
+
       kafkaProducer.dlt(record.value());
+      acknowledgment.acknowledge();
+
       return Optional.empty();
     });
     return factory;
   }
 
-  @Bean
   public RetryTemplate retryTemplate() {
     return RetryTemplate.builder()
         .fixedBackoff(this.retryDelay)
